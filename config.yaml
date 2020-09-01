@@ -1,0 +1,7 @@
+tmp_dir: "/fscratch/fanslerm"
+
+sample_sheet: "metadata/sample-sheet.tsv"
+
+salmon_idx: "/data/mayrc/db/mm10/qapa_3utrs.gencode_VM22.mm10.decoy.sidx"
+
+ensembl_ids: "/data/mayrc/db/mm10/ensembl_identifiers_v101.txt"

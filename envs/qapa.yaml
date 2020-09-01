@@ -1,0 +1,19 @@
+channels:
+  - conda-forge
+  - bioconda
+  - r
+  - defaults
+  - free
+dependencies:
+  - r-base=4.0
+  - r-optparse
+  - r-dplyr
+  - r-data.table
+  - r-stringr
+  - python>=3.5,<4
+  - pybedtools
+  - pandas
+  - numpy
+  - biopython
+  - pip:
+      - -e 'git+https://github.com/morrislab/qapa.git#egg=qapa'

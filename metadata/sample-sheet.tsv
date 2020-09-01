@@ -1,0 +1,12 @@
+sample_id	srr	cell_type	condition	library_type
+pro_B_8403	SRR499689	pro_B	wt	se
+pro_B_8408	SRR499690	pro_B	wt	se
+myoblasts_s22	SRR12014951	c2c12	wt	pe
+myoblasts_s23	SRR12014952	c2c12	wt	pe
+myoblasts_s24	SRR12014953	c2c12	wt	pe
+lsk_tip60_wt_1	SRR7946616	hspc	wt	pe
+lsk_tip60_wt_2	SRR7946617	hspc	wt	pe
+lsk_tip60_wt_3	SRR7946618	hspc	wt	pe
+lsk_tip60_ko_1	SRR7946619	hscp	tip60_ko	pe
+lsk_tip60_ko_2	SRR7946620	hscp	tip60_ko	pe
+lsk_tip60_ko_3	SRR7946621	hscp	tip60_ko	pe
