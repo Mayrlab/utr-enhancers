@@ -1,0 +1,11 @@
+channels:
+  - conda-forge
+  - bioconda
+  - r
+  - defaults
+dependencies:
+  - r-base=4.0
+  - bioconductor-dexseq
+  - bioconductor-tximport
+  - r-tidyverse
+  - r-cowplot
