@@ -1,8 +1,7 @@
 library(DEXSeq)
+library(tximport)
 library(tidyverse)
 library(magrittr)
-library(BiocParallel)
-library(tximport)
 
 
 files <- list.files("data/salmon", "quant.sf", full.names=TRUE, recursive=TRUE) %>%
@@ -12,16 +11,13 @@ files <- list.files("data/salmon", "quant.sf", full.names=TRUE, recursive=TRUE) 
 txi <- tximport(files, type="salmon", txOut=TRUE, 
                 countsFromAbundance="scaledTPM")
 cts <- txi$counts
-cts <- cts[rowSums(cts) > 0,]
 
 df_samples <- colnames(cts) %>%
     { data.frame(sample_id=.,
                  cell_type=ifelse(str_detect(., "ery"), "EryD", "HSC")) }
 
-ENSEMBL_FILE="/data/mayrc/db/mm10/ensembl_identifiers_v101.txt"
-
-df_ensembl <- read_tsv(ENSEMBL_FILE, skip=1,
-                       col_names=c("Gene", "tid", "Gene_Type", "Transcript_Type", "Gene_Name"))
+df_ery_qapa <- read_tsv("data/qapa/ery_pau_results.txt",
+                        col_types="cccccddcdddd____________")
 
 ################################################################################
 ## Methods from QAPA
@@ -78,22 +74,16 @@ separate_ensembl_field <- function(utr_ids) {
 
 ################################################################################
 
-utr_type <- function (utr_rank) {
-    if (length(utr_rank) == 1) { "S" }
-    else { ifelse(utr_rank > 1, "D", "P") }
-}
-
+## Use annots from QAPA output to get APA_ID
 df_utrs <- rownames(cts) %>%
     separate_ensembl_field %>%
-    inner_join(df_ensembl, by='tid') %>%
-    filter(Gene_Type == 'protein_coding') %>%
-    group_by(Gene) %>%
-    mutate(APA_ID=rank(Length) %>% { str_c(Gene, ., utr_type(.), sep="_") }) %>%
-    ungroup() %>%
-    dplyr::select(APA_ID, Gene_Name, Chr, UTR3.Start, UTR3.End, Strand, Length, everything())
+    select(UTR_ID, Chr, Strand, UTR3.Start, UTR3.End) %>%
+    inner_join(df_ery_qapa, by=c("Chr", "Strand", "UTR3.Start", "UTR3.End")) %>%
+    select(APA_ID, Gene_Name, Chr, UTR3.Start, UTR3.End, Strand, Length, everything())
 
 utr_to_apa_id <- deframe(df_utrs[, c("UTR_ID", "APA_ID")])
 
+cts <- cts[rowSums(cts) > 0,]
 cts %<>% `[`(rownames(.) %in% names(utr_to_apa_id),)
 
 rownames(cts) %<>% { utr_to_apa_id[.] }
@@ -106,19 +96,25 @@ dxd <- DEXSeqDataSet(countData=round(cts), sampleData=df_samples,
 dxd <- estimateSizeFactors(dxd)
 dxd <- estimateDispersions(dxd)
 dxd <- testForDEU(dxd, reducedModel=~sample + exon)
+dxd <- estimateExonFoldChanges(dxd, fitExpToVar='cell_type', denominator='HSC')
 
 dxr <- DEXSeqResults(dxd, independentFiltering=FALSE)
 qval <- perGeneQValue(dxr)
-dxr.g <- data.frame(gene=names(qval),qval)
+dxr.g <- data.frame(gene=names(qval), qval)
 
 columns <- c("featureID","groupID","pvalue")
 dxr.t <- as.data.frame(dxr[,columns])
 head(dxr.t)
 
+dxr.full <- dxr[,-c(11,12)] %>%
+    as_tibble() %>%
+    rename(Gene=groupID, APA_ID=featureID)
+
 saveRDS(dxd, "data/dexseq/dxd_hsc_eryd.Rds")
 
 write_tsv(dxr.g, "data/dexseq/dxr_hsc_eryd_gene.tsv.gz")
 write_tsv(dxr.t, "data/dexseq/dxr_hsc_eryd_tx.tsv.gz")
+write_tsv(dxr.full, "data/dexseq/dxr_hsc_eryd_full.tsv.gz")
 
 library(stageR)
 
