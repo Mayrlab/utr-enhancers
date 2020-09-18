@@ -1,0 +1,335 @@
+---
+title: "Figures - HSC (LSK) versus EryD Samples"
+author: "Mervin Fansler"
+date: "`r format(Sys.time(), '%d %B %Y')`"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 2
+---
+
+# Libraries
+```{r warning=FALSE, message=FALSE}
+library(DESeq2)
+library(magrittr)
+library(readxl)
+library(ggbeeswarm)
+library(tidyverse)
+library(cowplot)
+library(grid)
+```
+
+# Load Data
+```{r, message=FALSE, warning=FALSE}
+df_hsc <- read_tsv("data/qapa/hsc_pau_results.txt")
+df_ery <- read_tsv("data/qapa/ery_pau_results.txt")
+
+df_deseq <- read_tsv("data/deseq/dres_hsc_eryd_gene.tsv.gz") %>%
+  rename_with(.cols=-1, ~ str_c(., "_deseq"))
+dds <- readRDS("data/deseq/dds_hsc_eryd.Rds")
+
+df_dexseq <- read_tsv("data/dexseq/dxr_hsc_eryd_full.tsv.gz") %>%
+  rename_with(~ str_c(., "_dexseq"), -c("Gene", "APA_ID"))
+
+genes_EryD <- read_xlsx("data/enhancers/Cai_ery_enhancers_s1.xlsx", range="G3:G2231") %>%
+  deframe()
+```
+
+## Methods
+```{r}
+lengthen_qapa_df <- function (df) {
+  df %>%
+    pivot_longer(cols=matches(".(PAU|TPM)"), 
+                 names_to=c("cell_type", "sample", "measure"), 
+                 names_pattern="(.*)_([0-9]+).(PAU|TPM)$", values_to="value") %>%
+    pivot_wider(names_from="measure", values_from="value")
+}
+```
+
+## Merge Data
+```{r}
+df_total_counts <- colSums(counts(dds)) %>% 
+  enframe() %>% 
+  set_colnames(c("sample_id", "total_counts"))
+
+df_scale_factors <- colData(dds) %>% 
+  as_tibble %>% 
+  select(sample_id, sizeFactor) %>%
+  inner_join(df_total_counts, by='sample_id') %>%
+  mutate(scale_factor=1e6*sizeFactor/total_counts)
+
+df_combined <- lapply(list(df_hsc, df_ery), lengthen_qapa_df) %>%
+  do.call(what=rbind) %>%
+  filter(Num_Events > 1, str_detect(APA_ID, "_P$")) %>%
+  mutate(active_enhancer_eryd=Gene_Name %in% genes_EryD)
+
+df_hsc_eryd <- df_combined %>% 
+  filter(str_detect(cell_type, "(wt|ery_d)")) %>%
+  filter(!((sample == 3) & (str_detect(cell_type, "wt")))) %>%
+  group_by(APA_ID) %>%
+  filter(all(TPM > 3)) %>%
+  ungroup() %>%
+  mutate(sample_id=str_c(cell_type, sample, sep='_')) %>%
+  inner_join(df_scale_factors, by="sample_id") %>%
+  mutate(tpm_scaled=TPM/scale_factor)
+  
+
+df_tests <- df_hsc_eryd %>%
+  group_by(APA_ID, cell_type) %>%
+  summarize(mean_pau=mean(PAU), mean_tpm=mean(TPM), 
+            mean_tpm_scaled=mean(tpm_scaled), .groups='drop') %>%
+  pivot_wider(names_from='cell_type', values_from=c("mean_pau", "mean_tpm", "mean_tpm_scaled")) %>%
+  mutate(dpau=mean_pau_ery_d-mean_pau_lsk_tip60_wt,
+         foldchange=mean_tpm_ery_d/mean_tpm_lsk_tip60_wt,
+         foldchange_scaled=mean_tpm_scaled_ery_d/mean_tpm_scaled_lsk_tip60_wt) %>%
+  left_join(df_dexseq, by="APA_ID") %>%
+  #mutate(Gene=str_extract(APA_ID, "^[^_]+")) %>%
+  left_join(df_deseq, by="Gene") %>%
+  filter(!is.na(padj_dexseq)) # this removes a few genes that only have proximal reads
+  #left_join(dxr, by=c("Gene", "APA_ID"))
+```
+
+# Figure A
+```{r fig.width=8, fig.height=6}
+MIN_LFC=-2.5
+MAX_LFC=5
+MIN_DPAU=-40
+MAX_DPAU=80
+
+df_tests %>%
+  mutate(qval_clean=ifelse(is.na(padj_dexseq), 1, padj_dexseq),
+         sig_tx=cut(dpau, breaks=c(-Inf, -10, 10, Inf),
+                    labels=c("down", "same", "up")) %>% as.character,
+         sig_tx=ifelse(qval_clean < 0.05, sig_tx, "same"),
+         sig_gene=cut(log2FoldChange_deseq, breaks=c(-Inf, -1, 1, Inf),
+                      labels=c("down", "same", "up")) %>% as.character,
+         sig_gene=ifelse(padj_deseq < 0.05, sig_gene, "same"),
+         sig_combined=str_c(sig_tx, sig_gene, sep="_"),
+         sig_proximal=cut(foldchange_scaled, breaks=c(-Inf, 1/2, 2, Inf),
+                          labels=c("down", "same", "up")),
+         sig_combined=ifelse(sig_combined == 'up_up', 
+                             str_c(sig_combined, sig_proximal, sep="_"),
+                             sig_combined),
+         adjust_lfc=(log2FoldChange_deseq < MIN_LFC) | (log2FoldChange_deseq > MAX_LFC),
+         adjust_dpau=(dpau < MIN_DPAU) | (dpau > MAX_DPAU),
+         adjusted=adjust_lfc | adjust_dpau,
+         lfc_gene_adjusted=ifelse(adjust_lfc, 
+                                  ifelse(log2FoldChange_deseq < 0, MIN_LFC, MAX_LFC), 
+                                  log2FoldChange_deseq), 
+         dpau_adjusted=ifelse(adjust_dpau, 
+                              ifelse(dpau < 0, MIN_DPAU, MAX_DPAU), 
+                              dpau)) %T>%
+  { print(table(.$sig_combined))} %>%
+  ggplot(aes(y=dpau_adjusted/100, x=lfc_gene_adjusted)) +
+  geom_point(aes(color=sig_combined, shape=adjusted), size=1.5) +
+  geom_vline(xintercept=0, linetype='dashed') +
+  geom_hline(yintercept=0, linetype='dashed') +
+  lims(x=c(MIN_LFC, MAX_LFC)) +
+  scale_y_continuous(labels=scales::percent, lim=c(MIN_DPAU/100, MAX_DPAU/100), n.breaks=8) +
+  scale_color_manual(values=c("up_up_up"="#BA2A33", "up_up_same"="#5E3888", "up_same"="darkgrey", "up_down"='darkgrey',
+                              "same_up"="#000066", "same_same"='#444444', "same_down"="darkgrey",
+                              "down_up"='darkgrey', "down_same"="darkgrey", "down_down"='darkgrey')) +
+  scale_alpha_manual(values=c("FALSE"=1, "TRUE"=1)) +
+  scale_shape_manual(values=c(16, 17)) +
+  labs(y="Change in Proximal Usage", x="Gene Expression log2(Fold-Change)") +
+  theme_cowplot() +
+  guides(color=FALSE, alpha=FALSE, shape=FALSE)
+
+ggsave("img/FigA_EryD_HSC_QAPA_estimates_DEXSeq_tests_gene_offset.pdf", width=8, height=6)
+```
+
+# Figure B
+```{r fig.width=8, fig.height=4}
+classify_genes <- function (gene, tx, pau) {
+  if (pau == 'same') {
+    if (gene == 'same') { "No Change" }
+    else if (gene == 'up') { "Gene Up\nSame Usage" }
+    else { "Other" }
+  } else if (pau == 'up') {
+    if (gene == 'up'){
+      if (tx == 'up') { "Gene Up\nUsage Up\nProximal Up" }
+      else { "Gene Up\nUsage Up\nProximal Same" }
+    } else { "Other" }
+  } else { "Other" }
+}
+
+df_hsc_eryd %>%
+  select("Gene", "Gene_Name", "active_enhancer_eryd") %>%
+  unique() %>%
+  left_join(x=df_tests, by="Gene") %>%
+  mutate(sig_dpau=cut(dpau, breaks=c(-Inf, -10, 10, Inf),
+                    labels=c("down", "same", "up")) %>% as.character,
+         sig_dpau=ifelse(padj_dexseq < 0.05, sig_dpau, "same"),
+         sig_gene=cut(log2FoldChange_deseq, breaks=c(-Inf, -1, 1, Inf),
+                      labels=c("down", "same", "up")) %>% as.character,
+         sig_gene=ifelse(padj_deseq < 0.05, sig_gene, "same"),
+         fc_category=cut(foldchange_scaled, breaks=c(0, 1/2, 2, Inf), 
+                         labels=c("down", "same", "up")),
+         enhancer_status=ifelse(active_enhancer_eryd, "EryD+", "EryD-")) %>%
+  mutate(category=mapply(classify_genes, gene=sig_gene, tx=fc_category, pau=sig_dpau) %>%
+           factor(levels=c("No Change", "Other", "Gene Up\nSame Usage", "Gene Up\nUsage Up\nProximal Same", "Gene Up\nUsage Up\nProximal Up"))) %>%
+  ggplot(aes(x=category, group=enhancer_status)) +
+  geom_bar(aes(fill=enhancer_status), position='fill') +
+  #geom_text(aes(label=..count..), stat='count', position=position_fill(vjust=0.5)) +
+  scale_y_continuous(labels=scales::percent) +
+  scale_fill_manual(values=c("#A9D6E1", "#197AB2")) +
+  labs(y=NULL, x=NULL, fill="Enhancer\nStatus") +
+  theme_cowplot() +
+  guides(color=FALSE, alpha=FALSE)
+
+ggsave("img/FigB_EryD_HSC_enhancer_status_bars_selected.pdf", width=8, height=4)
+
+df_hsc_eryd %>%
+  select("Gene", "Gene_Name", "active_enhancer_eryd") %>%
+  unique() %>%
+  left_join(x=df_tests, by="Gene") %>%
+  mutate(sig_dpau=cut(dpau, breaks=c(-Inf, -10, 10, Inf),
+                    labels=c("down", "same", "up")) %>% as.character,
+         sig_dpau=ifelse(padj_dexseq < 0.05, sig_dpau, "same"),
+         sig_gene=cut(log2FoldChange_deseq, breaks=c(-Inf, -1, 1, Inf),
+                      labels=c("down", "same", "up")) %>% as.character,
+         sig_gene=ifelse(padj_deseq < 0.05, sig_gene, "same"),
+         fc_category=cut(foldchange_scaled, breaks=c(0, 1/2, 2, Inf), 
+                         labels=c("down", "same", "up")),
+         enhancer_status=ifelse(active_enhancer_eryd, "EryD+", "EryD-")) %>%
+  mutate(category=mapply(classify_genes, gene=sig_gene, tx=fc_category, pau=sig_dpau) %>%
+           factor(levels=c("No Change", "Other", "Gene Up\nSame Usage", "Gene Up\nUsage Up\nProximal Same", "Gene Up\nUsage Up\nProximal Up"))) %>%
+  ggplot(aes(x=category, group=enhancer_status)) +
+  geom_bar(aes(fill=enhancer_status), position='fill') +
+  geom_text(aes(label=..count..), stat='count', position=position_fill(vjust=0.5)) +
+  scale_y_continuous(labels=scales::percent) +
+  scale_fill_manual(values=c("#A9D6E1", "#197AB2")) +
+  labs(y=NULL, x=NULL, fill="Enhancer\nStatus") +
+  theme_cowplot() +
+  guides(color=FALSE, alpha=FALSE)
+
+ggsave("img/FigB_EryD_HSC_enhancer_status_bars_selected_numbers.pdf", width=8, height=4)
+```
+
+# Figure C
+```{r}
+genes_sig_ppau_up <- df_tests %>%
+  filter(padj_dexseq < 0.05, dpau > 10) %$%
+  unique(Gene)
+
+genes_sig_ppau_down <- df_tests %>%
+  filter(padj_dexseq < 0.05, dpau < -10) %$%
+  unique(Gene)
+
+df_combined_su_lu <- lapply(list(df_hsc, df_ery), lengthen_qapa_df) %>%
+  do.call(what=rbind) %>%
+  filter(Num_Events > 1) %>%
+  filter(str_detect(cell_type, "(wt|ery_d)"), str_detect(APA_ID, "_(D|P)$")) %>%
+  filter(!((sample == 3) & (str_detect(cell_type, "wt")))) %>%
+  mutate(isoform_type=ifelse(str_detect(APA_ID, "_D$"), 'distal', 'proximal')) %>%
+  mutate(sample_id=str_c(cell_type, sample, sep='_')) %>%
+  inner_join(df_scale_factors, by="sample_id") %>%
+  mutate(tpm_scaled=TPM/scale_factor) %>%
+  group_by(Gene, Gene_Name, sample, isoform_type, cell_type, ) %>%
+  summarize(PAU=sum(PAU), TPM=sum(TPM), tpm_scaled=sum(tpm_scaled), .groups='drop') %>%
+  pivot_wider(names_from='isoform_type', values_from=c('PAU', 'TPM', 'tpm_scaled')) %>%
+  group_by(Gene, Gene_Name, cell_type) %>%
+  summarize(mean_pau_proximal=mean(PAU_proximal),
+            mean_pau_distal=mean(PAU_distal),
+            mean_tpm_proximal=mean(TPM_proximal),
+            mean_tpm_distal=mean(TPM_distal),
+            mean_tpm_scaled_proximal=mean(tpm_scaled_proximal),
+            mean_tpm_scaled_distal=mean(tpm_scaled_distal), .groups='drop') %>%
+  pivot_wider(names_from='cell_type', values_from=starts_with("mean")) %>%
+  filter((mean_tpm_proximal_ery_d + mean_tpm_distal_ery_d > 3) |
+           (mean_tpm_proximal_lsk_tip60_wt + mean_tpm_distal_lsk_tip60_wt > 3)) %>%
+  mutate(fc_proximal=mean_tpm_proximal_ery_d/mean_tpm_proximal_lsk_tip60_wt,
+         fc_distal=mean_tpm_distal_ery_d/mean_tpm_distal_lsk_tip60_wt,
+         fc_scaled_proximal=mean_tpm_scaled_proximal_ery_d/mean_tpm_scaled_proximal_lsk_tip60_wt,
+         fc_scaled_distal=mean_tpm_scaled_distal_ery_d/mean_tpm_scaled_distal_lsk_tip60_wt,
+         sig_dpau_up=Gene %in% genes_sig_ppau_up,
+         sig_dpau_down=Gene %in% genes_sig_ppau_down,
+         active_enhancer_eryd=Gene_Name %in% genes_EryD) %>%
+  mutate(sig_dpau=ifelse(sig_dpau_up, 'up', 'same'),
+         sig_dpau=ifelse(sig_dpau_down, 'down', sig_dpau)) %>%
+  left_join(df_deseq, by="Gene") %>%
+  mutate(sig_gene=cut(log2FoldChange_deseq, breaks=c(-Inf, -1, 1, Inf),
+                      labels=c("down", "same", "up")) %>% as.character,
+         sig_gene=ifelse(padj_deseq < 0.05, sig_gene, "same"),
+         sig_tx=cut(fc_scaled_proximal, breaks=c(-Inf, 1/2, 2, Inf),
+                    labels=c("down", "same", "up")) %>% as.character)
+```
+
+## Four Groups
+```{r fig.width=10, fig.height=6, warning=FALSE}
+df_combined_su_lu %>%
+  mutate(category=mapply(classify_genes, gene=sig_gene, tx=sig_tx, pau=sig_dpau) %>%
+           factor(levels=c("No Change", "Other", "Gene Up\nSame Usage", "Gene Up\nUsage Up\nProximal Same", "Gene Up\nUsage Up\nProximal Up"))) %>%
+  pivot_longer(cols=starts_with("fc_scaled"), names_to='isoform', names_pattern="_([^_]+)$", values_to="fc_scaled") %>%
+  mutate(isoform=factor(isoform, levels=c('proximal', 'distal'))) %>%
+  ggplot(aes(x=isoform, y=log2(fc_scaled))) +
+  geom_hline(yintercept=-1, linetype='dashed', color='black') +
+  geom_hline(yintercept=1, linetype='dashed', color='black') +
+  geom_hline(yintercept=0, linetype='dashed', color='black') +
+  geom_violin(aes(fill=isoform), position='dodge', draw_quantiles=c(0.25, 0.5, 0.75), alpha=0.8) +
+  scale_fill_manual(values=c("#1B6340", "#56Af60")) +
+  facet_grid(cols=vars(category)) +
+  coord_cartesian(ylim=c(-10,10)) +
+  labs(x="Isoform Position", y="Isoform Expression Change\n[log2(Fold-Change) EryD/HSC]") +
+  guides(fill=FALSE) +
+  theme_minimal_hgrid()
+
+ggsave("img/FigC_EryD_HSC_isoform_lfc_comparisions_selected.pdf", width=10, height=6)
+```
+
+```{r fig.width=8, fig.height=6, warning=FALSE}
+df_combined_su_lu %>%
+  mutate(category=mapply(classify_genes, gene=sig_gene, tx=sig_tx, pau=sig_dpau) %>%
+           factor(levels=c("No Change", "Other", "Gene Up\nSame Usage", "Gene Up\nUsage Up\nProximal Same", "Gene Up\nUsage Up\nProximal Up"))) %>%
+  #pivot_longer(cols=starts_with("fc"), names_to='isoform', names_pattern="_(.*)$", values_to="fc") #%>%
+  #mutate(isoform=factor(isoform, levels=c('proximal', 'distal'))) %>%
+  ggplot(aes(x=category, y=log2FoldChange_deseq, fill=category)) +
+  #geom_quasirandom(dodge.width=0.9, size=0.5, alpha=0.8) +
+  geom_hline(yintercept=c(-1, 0, 1), linetype='dashed') +
+  geom_violin(position='dodge', draw_quantiles=c(0.25, 0.5, 0.75), 
+              scale='width', width=0.85, alpha=0.6) +
+  scale_fill_manual(values=c("#444444", "grey", "#000066","#BA2A33")) +
+  scale_y_continuous(n.breaks=8) +
+  #facet_wrap(vars(category), nrow=1) +
+  labs(x=NULL, y="Gene Expression Change\n[log2(Fold-Change) EryD/HSC]") +
+  guides(fill=FALSE) +
+  theme_minimal_hgrid()
+
+ggsave("img/FigD_EryD_HSC_gene_lfc_comparisions_selected.pdf", width=8, height=6)
+```
+
+# All Groups
+```{r fig.width=8, fig.height=8}
+df_hsc_eryd %>%
+  select("Gene", "Gene_Name", "active_enhancer_eryd") %>%
+  unique() %>%
+  left_join(x=df_tests, by="Gene") %>%
+  mutate(sig_dpau=cut(dpau, breaks=c(-Inf, -10, 10, Inf),
+                    labels=c("down", "same", "up")) %>% as.character,
+         sig_dpau=ifelse(padj_dexseq < 0.05, sig_dpau, "same"),
+         sig_gene=cut(log2FoldChange_deseq, breaks=c(-Inf, -1, 1, Inf),
+                      labels=c("down", "same", "up")) %>% as.character,
+         sig_gene=ifelse(padj_deseq < 0.05, sig_gene, "same"),
+         fc_category=cut(foldchange_scaled, breaks=c(0, 1/2, 2, Inf), 
+                         labels=c("down", "same", "up")),
+         enhancer_status=ifelse(active_enhancer_eryd, "EryD+", "EryD-")) %>%
+  ggplot(aes(x=fc_category, group=enhancer_status)) +
+  geom_bar(aes(fill=enhancer_status), position='fill') +
+  geom_text(aes(label=..count..), stat='count', position=position_fill(vjust=0.5)) +
+  facet_grid(rows=vars(sig_dpau), cols=vars(sig_gene), labeller=label_both, 
+             as.table=FALSE, margins=FALSE) +
+  scale_y_continuous(labels=scales::percent) +
+  scale_fill_manual(values=c("#A9D6E1", "#197AB2")) +
+  labs(y=NULL, 
+       x="Proximal Expression Change [EryD/HSC (2 Fold-Change)]",
+       fill="Enhancer\nStatus") +
+  theme_cowplot() +
+  guides(color=FALSE, alpha=FALSE)
+```
+
+---
+
+# Session Info
+```{r echo=FALSE}
+sessionInfo()
+```
