@@ -5,3 +5,7 @@ sample_sheet: "metadata/sample-sheet.tsv"
 salmon_idx: "/data/mayrc/db/mm10/qapa_3utrs.gencode_VM22.mm10.decoy.sidx"
 
 ensembl_ids: "/data/mayrc/db/mm10/ensembl_identifiers_v101.txt"
+
+hisat2: "/data/mayrc/software/hisat2-2.1.0/hisat2"
+
+hisat2_idx: "/data/mayrc/achursov/sequencing/genomes/mouse/mm10/indexes/hisat2/mm10_hisat2"
