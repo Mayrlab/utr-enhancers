@@ -9,3 +9,7 @@ ensembl_ids: "/data/mayrc/db/mm10/ensembl_identifiers_v101.txt"
 hisat2: "/data/mayrc/software/hisat2-2.1.0/hisat2"
 
 hisat2_idx: "/data/mayrc/achursov/sequencing/genomes/mouse/mm10/indexes/hisat2/mm10_hisat2"
+
+gencodeBED: "/data/mayrc/db/mm10/gencode.vM21.annotation.bed"
+
+gene_hk_bed: "/data/mayrc/db/mm10/mm10.HouseKeepingGene.bed"

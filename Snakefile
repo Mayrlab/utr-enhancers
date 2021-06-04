@@ -12,7 +12,8 @@ os.makedirs(config["tmp_dir"], exist_ok=True)
 
 
 metadata = pd.read_csv(config["sample_sheet"], sep='\t',
-                       index_col='sample_id')
+                       index_col='sample_id').filter(regex='^(ery|lsk)', axis=0)
+
 #print(metadata)
 #exit(0)
 
@@ -20,7 +21,11 @@ rule all:
     input:
         expand("data/salmon/{lib_type}/{sample_id}", zip,
                sample_id=metadata.index.values,
-               lib_type=metadata.library_type.values)#,
+               lib_type=metadata.library_type.values),
+        expand("qc/gene_cov/{lib_type}/{sample_id}.geneBodyCoverage.curves.pdf", zip,
+               sample_id=metadata.index.values,
+               lib_type=metadata.library_type.values)
+        #"qc/gene_cov/all.pdf"
         #expand("data/qapa/{sample_id}_pau_results.txt", sample_id=metadata.index.values)
 
 rule download_fastq_se:        
@@ -187,14 +192,14 @@ rule hisat2_se:
         idx=config['hisat2_idx'],
         sam=config['tmp_dir'] + "/{sample_id}.sam",
         strand=strand_se
-    threads: 12
+    threads: 16
     resources:
         mem_mb=2000
     conda: "envs/samtools.yaml"
     shell:
         """
         {params.hisat2} -p {threads} -x {params.idx} {params.strand} -U {input} -S {params.sam}
-        samtools sort -@ {threads} -m 2G -T {params.tmp}/ -o {output.bam} {params.sam}
+        samtools sort -@ {threads} -m 1536M -T {params.tmp}/ -o {output.bam} {params.sam}
         samtools index -@ {threads} {output.bam}
         rm -f {params.sam}
         """
@@ -221,14 +226,51 @@ rule hisat2_pe:
         idx=config['hisat2_idx'],
         sam=config['tmp_dir'] + "/{sample_id}.sam",
         strand=strand_pe
-    threads: 12
+    threads: 16
     resources:
         mem_mb=2000
     conda: "envs/samtools.yaml"
     shell:
         """
         {params.hisat2} -p {threads} -x {params.idx} {params.strand} -1 {input.r1} -2 {input.r2} -S {params.sam}
-        samtools sort -@ {threads} -m 2G -T {params.tmp}/ -o {output.bam} {params.sam}
+        samtools sort -@ {threads} -m 1536M -T {params.tmp}/ -o {output.bam} {params.sam}
         samtools index -@ {threads} {output.bam}
         rm -f {params.sam}
+        """
+
+rule gene_cov_all:
+    input:
+        bam=expand("data/bam/{lib_type}/{sample_id}.bam", zip,
+               sample_id=metadata.index.values,
+               lib_type=metadata.library_type.values),
+        bed=config['gene_hk_bed']
+    output:
+        "qc/gene_cov/all.pdf"
+    params:
+        bams=lambda _, input: ",".join(map(str, input.bam))
+    conda: "envs/rseqc.yaml"
+    resources:
+        mem_mb=8000,
+        time_min=86400
+    shell:
+        """
+        PDF={output}
+        OUT=${{PDF%.pdf}}
+        geneBody_coverage.py -r {input.bed} -i {params.bams} -o $OUT
+        """
+
+rule gene_cov_each:
+    input:
+        bam="data/bam/{lib_type}/{sample_id}.bam",
+        bed=config['gene_hk_bed']
+    output:
+        "qc/gene_cov/{lib_type}/{sample_id}.geneBodyCoverage.curves.pdf"
+    params:
+        out="qc/gene_cov/{lib_type}/{sample_id}"
+    conda: "envs/rseqc.yaml"
+    resources:
+        mem_mb=2000
+    shell:
+        """
+        geneBody_coverage.py -r {input.bed} -i {input.bam} -o {params.out}
         """

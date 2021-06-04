@@ -1,45 +1,45 @@
-sample_id	srr	cell_type	condition	library_type	strand
-pro_B_8403	SRR499689	pro_B	wt	se	r
-pro_B_8408	SRR499690	pro_B	wt	se	r
-myoblasts_s22	SRR12014951	c2c12	wt	pe	rf
-myoblasts_s23	SRR12014952	c2c12	wt	pe	rf
-myoblasts_s24	SRR12014953	c2c12	wt	pe	rf
-lsk_tip60_wt_1	SRR7946616	hspc	wt	pe	rf
-lsk_tip60_wt_2	SRR7946617	hspc	wt	pe	rf
-lsk_tip60_wt_3	SRR7946618	hspc	wt	pe	u
-lsk_tip60_ko_1	SRR7946619	hspc	tip60_ko	pe	rf
-lsk_tip60_ko_2	SRR7946620	hspc	tip60_ko	pe	rf
-lsk_tip60_ko_3	SRR7946621	hspc	tip60_ko	pe	u
-ery_p_1	SRR6946154	ery_p	wt	se	u
-ery_p_2	SRR6946155	ery_p	wt	se	u
-ery_p_3	SRR6946156	ery_p	wt	se	u
-ery_d_1	SRR6946157	ery_d	wt	se	u
-ery_d_2	SRR6946158	ery_d	wt	se	u
-ery_d_3	SRR6946159	ery_d	wt	se	u
-t_thymic_dn_1	SRR10993727	thymic_T	dn	se	f
-t_thymic_dn_2	SRR10993728	thymic_T	dn	se	f
-t_thymic_dn_3	SRR10993729	thymic_T	dn	se	r
-t_thymic_dp_1	SRR10993730	thymic_T	dp	pe	fr
-t_thymic_dp_2	SRR10993731	thymic_T	dp	pe	fr
-t_naive_1	SRR10993732	naive_T	wt	pe	fr
-t_naive_2	SRR10993733	naive_T	wt	pe	fr
-t_helper_1_1	SRR10993734	Th1	wt	pe	fr
-t_helper_1_2	SRR10993735	Th1	wt	pe	fr
-t_helper_2_1	SRR10993736	Th2	wt	pe	fr
-t_helper_2_2	SRR10993737	Th2	wt	pe	fr
-t_helper_17_1	SRR10993738	Th17	wt	pe	fr
-t_helper_17_2	SRR10993740	Th17	wt	pe	fr
-lsk_mettl3_wt_1	SRR11566626	hspc	wt	se	r
-lsk_mettl3_wt_2	SRR11566627	hspc	wt	se	r
-lsk_mettl3_wt_3	SRR11566628	hspc	wt	se	r
-lsk_mettl3_ko_1	SRR11566623	hspc	mettl3_ko	se	r
-lsk_mettl3_ko_2	SRR11566624	hspc	mettl3_ko	se	r
-lsk_mettl3_ko_3	SRR11566625	hspc	mettl3_ko	se	r
-ery_d_cd71_wt_ter119_wt	SRR2180037	ery_d	wt	se	u
-lsk_sf3b1_wt_srsf2_wt_A	SRR6458998	hspc	wt	pe	rf
-lsk_sf3b1_wt_srsf2_wt_B	SRR6458999	hspc	wt	pe	rf
-lsk_sf3b1_wt_srsf2_wt_C	SRR6459000	hspc	wt	pe	rf
-ery_d_eto_wt_s3c_1	SRR10721652	ery_d	wt	se	r
-ery_d_eto_wt_s3m_1	SRR10721658	ery_d	wt	se	r
-ery_d_eto_wt_s3c_2	SRR10721659	ery_d	wt	se	r
-ery_d_eto_wt_s3m_2	SRR10721665	ery_d	wt	se	r
+sample_id	srr	cell_type	condition	library_type	strand	study
+lsk_tip60_wt_1	SRR7946616	hspc	wt	pe	rf	numata20
+lsk_tip60_wt_2	SRR7946617	hspc	wt	pe	rf	numata20
+lsk_tip60_wt_3	SRR7946618	hspc	wt	pe	u	numata20
+lsk_tip60_ko_1	SRR7946619	hspc	tip60_ko	pe	rf	numata20
+lsk_tip60_ko_2	SRR7946620	hspc	tip60_ko	pe	rf	numata20
+lsk_tip60_ko_3	SRR7946621	hspc	tip60_ko	pe	u	numata20
+ery_p_1	SRR6946154	ery_p	wt	se	u	cai20
+ery_p_2	SRR6946155	ery_p	wt	se	u	cai20
+ery_p_3	SRR6946156	ery_p	wt	se	u	cai20
+ery_d_1	SRR6946157	ery_d	wt	se	u	cai20
+ery_d_2	SRR6946158	ery_d	wt	se	u	cai20
+ery_d_3	SRR6946159	ery_d	wt	se	u	cai20
+t_thymic_dn_1	SRR10993727	thymic_T	dn	se	f	maqbool20
+t_thymic_dn_2	SRR10993728	thymic_T	dn	se	f	maqbool20
+t_thymic_dn_3	SRR10993729	thymic_T	dn	se	r	maqbool20
+t_thymic_dp_1	SRR10993730	thymic_T	dp	pe	fr	maqbool20
+t_thymic_dp_2	SRR10993731	thymic_T	dp	pe	fr	maqbool20
+t_naive_1	SRR10993732	naive_T	wt	pe	fr	maqbool20
+t_naive_2	SRR10993733	naive_T	wt	pe	fr	maqbool20
+t_helper_1_1	SRR10993734	Th1	wt	pe	fr	maqbool20
+t_helper_1_2	SRR10993735	Th1	wt	pe	fr	maqbool20
+t_helper_2_1	SRR10993736	Th2	wt	pe	fr	maqbool20
+t_helper_2_2	SRR10993737	Th2	wt	pe	fr	maqbool20
+t_helper_17_1	SRR10993738	Th17	wt	pe	fr	maqbool20
+t_helper_17_2	SRR10993740	Th17	wt	pe	fr	maqbool20
+lsk_mettl3_wt_1	SRR11566626	hspc	wt	se	r	gao20
+lsk_mettl3_wt_2	SRR11566627	hspc	wt	se	r	gao20
+lsk_mettl3_wt_3	SRR11566628	hspc	wt	se	r	gao20
+lsk_mettl3_ko_1	SRR11566623	hspc	mettl3_ko	se	r	gao20
+lsk_mettl3_ko_2	SRR11566624	hspc	mettl3_ko	se	r	gao20
+lsk_mettl3_ko_3	SRR11566625	hspc	mettl3_ko	se	r	gao20
+ery_d_cd71_wt_ter119_wt	SRR2180037	ery_d	wt	se	u	rothberg18
+lsk_sf3b1_wt_srsf2_wt_A	SRR6458998	hspc	wt	pe	rf	lee18
+lsk_sf3b1_wt_srsf2_wt_B	SRR6458999	hspc	wt	pe	rf	lee18
+lsk_sf3b1_wt_srsf2_wt_C	SRR6459000	hspc	wt	pe	rf	lee18
+ery_d_eto_wt_s3c_1	SRR10721652	ery_d	wt	se	r	guo20
+ery_d_eto_wt_s3m_1	SRR10721658	ery_d	wt	se	r	guo20
+ery_d_eto_wt_s3c_2	SRR10721659	ery_d	wt	se	r	guo20
+ery_d_eto_wt_s3m_2	SRR10721665	ery_d	wt	se	r	guo20
+ery_d_gata1_wt_e125_r3_1	SRR8945139	ery_d	wt	pe	rf	ling19
+ery_d_gata1_wt_e125_r3_2	SRR8945140	ery_d	wt	pe	rf	ling19
+ery_d_gata1_wt_e125_r3_3	SRR8945141	ery_d	wt	pe	rf	ling19
+ery_d_gata1_wt_e145_r3_1	SRR8945144	ery_d	wt	pe	rf	ling19
+ery_d_gata1_wt_e145_r3_2	SRR8945145	ery_d	wt	pe	rf	ling19
