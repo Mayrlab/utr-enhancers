@@ -116,7 +116,8 @@ dds <- DESeqDataSetFromMatrix(countData=cts,
 
 dds <- DESeq(dds)
 
-dres <- DESeq2::results(dds, contrast=c("cell_type", "EryD", "HSC"))
+dres <- DESeq2::results(dds, contrast=c("cell_type", "EryD", "HSC"),
+                        independentFiltering=FALSE, cooksCutoff=FALSE)
 
 saveRDS(dds, "data/deseq/dds_hsc_eryd_ling19_lee18_txs.Rds")
 
